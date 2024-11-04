@@ -3,6 +3,7 @@ import asyncio
 import aiohttp
 import sqlite3
 import os
+import json
 from tqdm import tqdm
 
 response = requests.get("https://miet.ru/")
@@ -11,7 +12,12 @@ headers = { "Cookie" : response.text.split('"')[1].split(";")[0]}
 async def get_group(session, group, pbar):
     async with session.post("https://miet.ru/schedule/data", headers = headers, data = {"group": group}) as r:
         pbar.update(1)
-        return await r.json()
+        json_data = []
+        try:
+            json_data = await r.json()
+        except json.decoder.JSONDecodeError:
+            print(f"\nError getting group {group}")
+        return json_data
 
 async def get_all_groups(session):
     groups = requests.post("https://miet.ru/schedule/groups", headers=headers).json()
@@ -50,6 +56,8 @@ async def main():
         );""")
     print("Data downloaded")
     for group in tqdm(groups):
+        if not group:
+            continue
         group_values = []
         rooms_value = []
         for i in group["Data"]:
@@ -78,4 +86,5 @@ async def main():
     os.rename("./data.db", f'./{groups[0]["Semestr"]}.db')
 
 if __name__ == "__main__":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(main())
